@@ -1,0 +1,1 @@
+python3 inference_realtime_realsense.py --version YxZhang/evf-sam2   --model_type sam2    --prompt "detect face"
