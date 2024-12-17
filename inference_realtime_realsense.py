@@ -11,6 +11,7 @@ from torchvision import transforms
 from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoTokenizer, BitsAndBytesConfig
 
+
 import sys
 sys.path.append('/home/koyo/EVF-SAM')
 from model.segment_anything.utils.transforms import ResizeLongestSide
@@ -147,6 +148,7 @@ def init_models(args):
 
     return tokenizer, model
 
+
 def main(args):
     # Parse command-line arguments
     args = parse_args(args)
@@ -158,6 +160,7 @@ def main(args):
     if torch.cuda.get_device_properties(0).major >= 8:
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
+    
 
     # Use the prompt from the command-line argument
     prompt = args.prompt
@@ -168,15 +171,30 @@ def main(args):
     # RealSense camera setup
     pipeline = rs.pipeline()
     config = rs.config()
-    config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
-    config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
-    pipeline.start(config)
+    # config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+    # config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 
+    try:
+        pipeline.start(config)
+    except Exception as e:
+        print(f"Error starting pipeline: {e}")
+
+    count = 0
 
     print("Start streaming loop ....")
     # Start a loop to continuously capture frames from the video stream
     while True:
-        frames = pipeline.wait_for_frames()
+        count += 1
+
+        try:
+            frames = pipeline.wait_for_frames()
+            print("Frames received successfully.")
+        except Exception as e:
+            print(f"Error waiting for frames: {e}")
+            continue
+
         color_frame = frames.get_color_frame()
         depth_frame = frames.get_depth_frame()
 
@@ -256,7 +274,11 @@ def main(args):
          
 
         # Create a black-and-white mask for display
-        bw_mask = np.zeros_like(color_frame, dtype=np.uint8)
+        # bw_mask = np.zeros_like(color_frame, dtype=np.uint8)
+        bw_mask = np.zeros_like(pred_mask, dtype=np.uint8)
+        # print(f"bw_mask shape: {bw_mask.shape}")
+        # print(f"pred_mask shape: {pred_mask.shape}")
+
         bw_mask[pred_mask] = 255  # Set predicted mask areas to white
         # print("bw_mask after bw_mask[pred_mask]=255: ", bw_mask)
         mask_image = bw_mask
@@ -264,11 +286,15 @@ def main(args):
         # print(f"Frame shape: {overlay.shape}") 
         print("Streaming ...")
         # Display the processed frame in a window
-        # cv2.imshow("Real-Time Inference", overlay)
+        cv2.imshow("Segmentation Image", segmentation_image)
         # Display the processed frame with bounding box
-        # cv2.imshow("Real-Time Inference", frame)
+        cv2.imshow("Bounding Box Image", bounding_box_image)
         # Display the black-and-white mask
-        cv2.imshow("Predicted Mask", bw_mask)
+        cv2.imshow("Mask Image", bw_mask)
+
+
+        if count == 3:
+            break
 
 
         # Check if the user presses the 'q' key to quit the stream
