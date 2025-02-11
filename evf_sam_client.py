@@ -13,8 +13,9 @@ REALSENSE = 0
 # Define the server URL
 url = "http://0.0.0.0:8000/predict"  # Note the '/predict' endpoint
 # url = "http://127.0.0.1:8000/predict"  # Note the '/predict' endpoint
+# url = "http://10.138.177.122:9000/predict"  # Note the '/predict' endpoint
 
-prompt = "detect a face"
+prompt = "detect a person"
 
 
 if REALSENSE:
@@ -56,7 +57,7 @@ try:
             # Normalize depth image for display
             depth_image_display = cv2.convertScaleAbs(depth_image, alpha=0.03)
 
-            # Display images
+            # Send the POST requestDisplay images
             cv2.imshow("Color Image", color_image)
             cv2.imshow("Depth Image", depth_image_display)
 
@@ -82,6 +83,7 @@ try:
             "image": ("image.png", buffer.tobytes(), "image/png")
         }
 
+        # print("Send the POST request")
         # Send the POST request
         response = requests.post(url, files=files)
 
@@ -103,14 +105,16 @@ try:
             # Display the processed output image
             cv2.imshow("Bounding Box Image", bounding_box_image)
 
-            # # Decode the base64-encoded image
-            # img_data = base64.b64decode(response_json["mask_image"])
-            # img_array = np.frombuffer(img_data, dtype=np.uint8)
+            # Decode the base64-encoded image
+            img_data = base64.b64decode(response_json["mask_image"])
+            img_array = np.frombuffer(img_data, dtype=np.uint8)
             # img_array = (img_array * 255).astype(np.uint8)
-            # mask_image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            mask_image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            # mask_image = cv2.imdecode(img_array, cv2.IMREAD_UNCHANGED)
             # print("mask_image: ", mask_image)
             # Display the processed output image
-            # cv2.imshow("Mask Image", mask_image)
+            cv2.imshow("Mask Image", mask_image)
+
 
 
 
@@ -133,15 +137,15 @@ finally:
     # Save the last captured color and depth images
     segmentation_image_path = os.path.join(save_dir, "segmentation_image.png")
     bounding_box_image_path = os.path.join(save_dir, "bounding_box_image.png")
-    # mask_image_path = os.path.join(save_dir, "mask_image.png")
+    mask_image_path = os.path.join(save_dir, "mask_image.png")
 
     cv2.imwrite(segmentation_image_path, segmentation_image)
     cv2.imwrite(bounding_box_image_path, bounding_box_image)
-    # cv2.imwrite(mask_image_path, mask_image)
+    cv2.imwrite(mask_image_path, mask_image)
 
     print(f"Segmentation image saved as {segmentation_image_path}")
     print(f"Bounding box image saved as {bounding_box_image_path}")
-    # print(f"Mask image saved as {mask_image_path}")
+    print(f"Mask image saved as {mask_image_path}")
 
     if not REALSENSE:
         # CV2
