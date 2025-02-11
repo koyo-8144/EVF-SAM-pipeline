@@ -3,6 +3,8 @@ import os
 import sys
 
 import pyrealsense2 as rs
+import sys
+sys.path.append('/usr/lib/python3/dist-packages')
 import cv2
 import numpy as np
 import torch
@@ -23,7 +25,7 @@ from model.segment_anything.utils.transforms import ResizeLongestSide
 # BROKER_PORT = 1883
 # BROKER_ADDRESS = "192.168.8.116"
 # BROKER_PORT = 1883
-BROKER_ADDRESS = "192.168.153.222"
+BROKER_ADDRESS = "172.22.247.120"
 BROKER_PORT = 1883
 
 
@@ -39,19 +41,21 @@ class EVFInference:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
 
-        self.pipeline = rs.pipeline()
-        self.config = rs.config()
-        # self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-        # self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-        self.config.enable_stream(rs.stream.color, 320, 240, rs.format.bgr8, 30)
-        self.config.enable_stream(rs.stream.depth, 320, 240, rs.format.z16, 30)
+        # self.pipeline = rs.pipeline()
+        # self.config = rs.config()
+        # # self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+        # # self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        # self.config.enable_stream(rs.stream.color, 320, 240, rs.format.bgr8, 30)
+        # self.config.enable_stream(rs.stream.depth, 320, 240, rs.format.z16, 30)
         self.object = None
-        self.setup_realsense()
+        # self.setup_realsense()
+        # time.sleep(5.0)
 
 
     def parse_args(self, args):
         parser = argparse.ArgumentParser(description="EVF infer")
-        parser.add_argument("--version", required=True)
+        # parser.add_argument("--version", required=True)
+        parser.add_argument("--version", default="YxZhang/evf-sam2", type=str)
         parser.add_argument("--vis_save_path", default="./infer", type=str)
         parser.add_argument("--precision", default="fp16", type=str, choices=["fp32", "bf16", "fp16"])
         parser.add_argument("--image_size", default=224, type=int)
@@ -59,9 +63,9 @@ class EVFInference:
         parser.add_argument("--local-rank", default=0, type=int)
         parser.add_argument("--load_in_8bit", action="store_true", default=False)
         parser.add_argument("--load_in_4bit", action="store_true", default=False)
-        parser.add_argument("--model_type", default="ori", choices=["ori", "effi", "sam2"])
+        parser.add_argument("--model_type", default="sam2", choices=["ori", "effi", "sam2"])
         parser.add_argument("--image_path", type=str, default="assets/zebra.jpg")
-        parser.add_argument("--prompt", type=str, default="zebra top left")
+        parser.add_argument("--prompt", type=str, default="detect a bottle")
         return parser.parse_args(args)
 
     def init_models(self, args):
@@ -190,8 +194,8 @@ class EVFInference:
         # # Initialize the model and tokenizer
         # tokenizer, model = self.init_models(args)
 
-        # # RealSense camera setup
-        self.pipeline = rs.pipeline()
+        # RealSense camera setup
+        pipeline = rs.pipeline()
         config = rs.config()
         # config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         # config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
@@ -199,7 +203,8 @@ class EVFInference:
         config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 
         try:
-            self.pipeline.start(config)
+            pipeline.start(config)
+            print("RealSense pipeline started.")
         except Exception as e:
             print(f"Error starting pipeline: {e}")
             raise
@@ -212,7 +217,7 @@ class EVFInference:
             count += 1
 
             try:
-                frames = self.pipeline.wait_for_frames(1000)
+                frames = pipeline.wait_for_frames(10000)
                 print("Frames received successfully.")
             except Exception as e:
                 print(f"Error waiting for frames: {e}")
@@ -228,13 +233,16 @@ class EVFInference:
             # Convert RealSense frames to numpy arrays
             color_image = np.asanyarray(color_frame.get_data())
             depth_image = np.asanyarray(depth_frame.get_data())
+            # print("color_image: ", color_image)
+            # print("depth_image: ", depth_image)
 
             # Normalize depth image for display
             depth_image_display = cv2.convertScaleAbs(depth_image, alpha=0.03)
+            # print("depth_image_display: ", depth_image_display)
 
-            # Display images
+            # # Display images
             # cv2.imshow("Color Image", color_image)
-            cv2.imshow("Depth Image", depth_image_display)
+            # cv2.imshow("Depth Image", depth_image_display)
 
             # Convert the captured frame from BGR to RGB format for model input
             frame_rgb = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
@@ -314,6 +322,7 @@ class EVFInference:
             cv2.imshow("Bounding Box Image", bounding_box_image)
             # Display the black-and-white mask
             cv2.imshow("Mask Image", bw_mask)
+            # cv2.waitKey(0)  # Display the image for at least 1ms
 
 
             if count == self.display_count:
@@ -324,7 +333,7 @@ class EVFInference:
                 break
 
 
-        self.pipeline.stop()
+        pipeline.stop()
 
         save_dir = "image_files"
         os.makedirs(save_dir, exist_ok=True)
@@ -370,7 +379,7 @@ class EVFInference:
         print("Message received. Exiting receive_message.")
 
     def main(self):
-        # self.start_mqtt_listener()
+        self.start_mqtt_listener()
         self.receive_message()
         self.run_inference()
         self.client.disconnect()

@@ -247,9 +247,9 @@ def main(args):
         # print(f"Frame shape: {overlay.shape}") 
         print("Streaming ...")
         # Display the processed frame in a window
-        # cv2.imshow("Real-Time Inference", overlay)
+        cv2.imshow("Real-Time Inference", overlay)
         # Display the processed frame with bounding box
-        # cv2.imshow("Real-Time Inference", frame)
+        cv2.imshow("Real-Time Inference", frame)
         # Display the black-and-white mask
         cv2.imshow("Predicted Mask", bw_mask)
 

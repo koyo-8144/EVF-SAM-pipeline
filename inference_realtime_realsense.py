@@ -20,7 +20,8 @@ from model.segment_anything.utils.transforms import ResizeLongestSide
 
 def parse_args(args):
     parser = argparse.ArgumentParser(description="EVF infer")
-    parser.add_argument("--version", required=True)
+    # parser.add_argument("--version", required=True)
+    parser.add_argument("--version", default="YxZhang/evf-sam2", type=str)
     parser.add_argument("--vis_save_path", default="./infer", type=str)
     parser.add_argument(
         "--precision",
@@ -35,9 +36,9 @@ def parse_args(args):
     parser.add_argument("--local-rank", default=0, type=int, help="node rank")
     parser.add_argument("--load_in_8bit", action="store_true", default=False)
     parser.add_argument("--load_in_4bit", action="store_true", default=False)
-    parser.add_argument("--model_type", default="ori", choices=["ori", "effi", "sam2"])
+    parser.add_argument("--model_type", default="sam2", choices=["ori", "effi", "sam2"])
     parser.add_argument("--image_path", type=str, default="assets/zebra.jpg")
-    parser.add_argument("--prompt", type=str, default="zebra top left")
+    parser.add_argument("--prompt", type=str, default="detect a bottle")
     
     return parser.parse_args(args)
 

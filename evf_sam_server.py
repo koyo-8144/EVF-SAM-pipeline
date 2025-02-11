@@ -21,14 +21,14 @@ from model.segment_anything.utils.transforms import ResizeLongestSide
 # from inference_realtime_cv2 import init_models, beit3_preprocess, sam_preprocess
 
 
-PORT = 8000
+# PORT = 8000
 
-app = FastAPI()
-
-
+# app = FastAPI()
 
 
-class EVFSAM_API(ls.LitAPI):
+
+
+class EVFSAMAPI(ls.LitAPI):
     def setup(self, device) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Use float16 for the entire notebook to optimize inference speed
@@ -38,7 +38,7 @@ class EVFSAM_API(ls.LitAPI):
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
         print("Initialise model")
-        self.tokenizer, self.model = self.init_models("YxZhang/evf-sam2", "fp16", False, False, "ori")
+        self.tokenizer, self.model = self.init_models("YxZhang/evf-sam2", "fp16", False, False, "sam2")
 
     def decode_request(self, request) -> dict:
         # Decode the incoming request to extract the video frame and prompt
@@ -48,6 +48,12 @@ class EVFSAM_API(ls.LitAPI):
         if image_file is None:
             raise ValueError("No image file provided in the request.")
         image_bytes = image_file.file.read()
+
+        # Debug log for image bytes
+        if not image_bytes:
+            raise ValueError("No data found in the image file.")
+
+        print(f"Image bytes size: {len(image_bytes)} bytes")
 
         return {
             "image_bytes": image_bytes,
@@ -72,7 +78,7 @@ class EVFSAM_API(ls.LitAPI):
         original_size_list = [image_np.shape[:2]]  # (height, width)
 
         # Preprocess for BEIT-3 and SAM
-        image_beit = self.beit3_preprocess(image_np, image_size=256).to(dtype=self.model.dtype, device=self.device)
+        image_beit = self.beit3_preprocess(image_np, img_size=224).to(dtype=self.model.dtype, device=self.device)
         image_sam, resize_shape = self.sam_preprocess(image_np, model_type="sam2")
         image_sam = image_sam.to(dtype=self.model.dtype, device=self.device)
 
@@ -112,11 +118,12 @@ class EVFSAM_API(ls.LitAPI):
             # Draw the bounding box directly on the original frame (in BGR format)
             cv2.rectangle(bb_image, top_left, bottom_right, (0, 255, 0), 2)  # Green box
 
-        # Create a black-and-white mask for display
-        bw_mask = np.zeros_like(image_np, dtype=np.uint8)
-        bw_mask[pred_mask] = 1
+        # # Create a black-and-white mask for display
+        # bw_mask = np.zeros_like(image_np, dtype=np.uint8)
+        # bw_mask[pred_mask] = 1
         
-        return {"segmentation_image": overlay, "bounding_box_image": bb_image, "mask_image": bw_mask}
+        # return {"segmentation_image": overlay, "bounding_box_image": bb_image, "mask_image": bw_mask}
+        return {"segmentation_image": overlay, "bounding_box_image": bb_image}
 
     def encode_response(self, output: dict) -> Response:
         try:
@@ -124,13 +131,13 @@ class EVFSAM_API(ls.LitAPI):
             segmentation_image_data = self.convert_image(segmentation_image)
             bounding_box_image = output["bounding_box_image"]
             bounding_box_image_data = self.convert_image(bounding_box_image)
-            mask_image = output["mask_image"]
-            mask_image_data = self.convert_image(mask_image)
+            # mask_image = output["mask_image"]
+            # mask_image_data = self.convert_image(mask_image)
             
             response = {
                 "segmentation_image": segmentation_image_data,
                 "bounding_box_image": bounding_box_image_data,
-                "mask_image": mask_image_data,
+                # "mask_image": mask_image_data,
             }
 
             return JSONResponse(content=response)
@@ -140,6 +147,15 @@ class EVFSAM_API(ls.LitAPI):
         
 
     def convert_image(self, image):
+        # print("image: ", image)
+        # output_image = Image.fromarray(np.uint8(output_image)).convert("RGB")
+        # Check if the input is a NumPy array and convert it to a PIL image
+        if isinstance(image, np.ndarray):
+            # Convert BGR to RGB if needed
+            if image.shape[-1] == 3:  # Check if it has 3 channels
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(image)
+
         # Ensure the image is a byte representation (for PIL Image objects)
         if isinstance(image, Image.Image):  # Check if image is PIL.Image
             buffer = BytesIO()
@@ -263,24 +279,24 @@ class EVFSAM_API(ls.LitAPI):
         return tokenizer, model
 
 
-lit_api = EVFSAM_API()
-server = ls.LitServer(lit_api)
+# lit_api = EVFSAM_API()
+# server = ls.LitServer(lit_api)
 
-# Define the POST endpoint for prediction
-@app.post("/predict")
-async def predict(
-    text_prompt: str = Form(...),
-    image: UploadFile = Form(...)
-):
-    print('predict endpoint')
-    inputs = {
-        "text_prompt": text_prompt,
-        "image_bytes": await image.read(),
-    }
+# # Define the POST endpoint for prediction
+# @app.post("/predict")
+# async def predict(
+#     text_prompt: str = Form(...),
+#     image: UploadFile = Form(...)
+# ):
+#     print('predict endpoint')
+#     inputs = {
+#         "text_prompt": text_prompt,
+#         "image_bytes": await image.read(),
+#     }
 
-    # Use LangSAMAPI to make a prediction
-    output = lit_api.predict(inputs)
-    return lit_api.encode_response(output)
+#     # Use LangSAMAPI to make a prediction
+#     output = lit_api.predict(inputs)
+#     return lit_api.encode_response(output)
 
 
 if __name__ == "__main__":
@@ -300,5 +316,7 @@ if __name__ == "__main__":
     # print ('Current cuda device ', torch.cuda.current_device())
     # print(f"Starting LitServe and Gradio server on port {PORT}...")
 
-    server.run(port=PORT, log_level="trace")
-
+    # server.run(port=PORT, log_level="trace")
+    api = EVFSAMAPI()
+    server = ls.LitServer(api, accelerator="auto", max_batch_size=1)
+    server.run(port=8000)
