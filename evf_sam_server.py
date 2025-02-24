@@ -5,6 +5,11 @@ import numpy as np
 from io import BytesIO
 
 import torch
+print(torch.cuda.is_available())  # Should return True
+print(torch.cuda.device_count())  # Should be >0
+print(torch.cuda.get_device_name(0))  # Should show your GPU model
+breakpoint()
+
 import torch.nn.functional as F
 from torchvision import transforms
 from torchvision.transforms.functional import InterpolationMode
@@ -19,12 +24,6 @@ import sys
 sys.path.append('/home/koyo/EVF-SAM')
 from model.segment_anything.utils.transforms import ResizeLongestSide
 # from inference_realtime_cv2 import init_models, beit3_preprocess, sam_preprocess
-
-
-# PORT = 8000
-
-# app = FastAPI()
-
 
 
 
@@ -112,8 +111,9 @@ class EVFSAMAPI(ls.LitAPI):
         # Compute the bounding box from the prediction mask
         y, x = np.where(pred_mask)  # Get coordinates where the mask is True
         if len(y) > 0 and len(x) > 0:
-            top_left = (min(x), min(y))  # Top-left corner of the bounding box
-            bottom_right = (max(x), max(y))  # Bottom-right corner of the bounding box
+            xmin, ymin, xmax, ymax = min(x), min(y), max(x), max(y)
+            top_left = (xmin, ymin)  # Top-left corner of the bounding box
+            bottom_right = (xmax, ymax)  # Bottom-right corner of the bounding box
 
             # Draw the bounding box directly on the original frame (in BGR format)
             cv2.rectangle(bb_image, top_left, bottom_right, (0, 255, 0), 2)  # Green box
@@ -122,9 +122,21 @@ class EVFSAMAPI(ls.LitAPI):
         bw_mask = np.zeros_like(image_np, dtype=np.uint8)
         bw_mask[pred_mask] = 255
         # print("bw_mask: ", bw_mask)
-        print(f"bw_mask shape: {bw_mask.shape}, unique values: {np.unique(bw_mask)}")
+        # print(f"bw_mask shape: {bw_mask.shape}, unique values: {np.unique(bw_mask)}")
 
-        return {"segmentation_image": overlay, "bounding_box_image": bb_image, "mask_image": bw_mask}
+        # print("xmin: ", xmin)
+        # print("ymin: ", ymin)
+        # print("xmax: ", xmax)
+        # print("ymax: ", ymax)
+
+        return {
+            "segmentation_image": overlay, 
+            "bounding_box_image": bb_image, 
+            "mask_image": bw_mask, 
+            "xmin": int(xmin), 
+            "ymin": int(ymin), 
+            "xmax": int(xmax), 
+            "ymax": int(ymax)}
         # return {"segmentation_image": overlay, "bounding_box_image": bb_image}
 
     def encode_response(self, output: dict) -> Response:
@@ -144,6 +156,10 @@ class EVFSAMAPI(ls.LitAPI):
                 "segmentation_image": segmentation_image_data,
                 "bounding_box_image": bounding_box_image_data,
                 "mask_image": mask_image_data,
+                "xmin": output["xmin"],
+                "ymin": output["ymin"],
+                "xmax": output["xmax"],
+                "ymax": output["ymax"],
             }
 
             return JSONResponse(content=response)
@@ -277,8 +293,11 @@ class EVFSAMAPI(ls.LitAPI):
         elif model_type=="sam2":
             from model.evf_sam2 import EvfSam2Model
             model = EvfSam2Model.from_pretrained(
-                version, low_cpu_mem_usage=True, **kwargs
+                version, low_cpu_mem_usage=False, **kwargs
             )
+        
+        # print("Model: ", model)
+        # breakpoint()
 
         if (not load_in_4bit) and (not load_in_8bit):
             model = model.cuda()
@@ -327,4 +346,4 @@ if __name__ == "__main__":
     # server.run(port=PORT, log_level="trace")
     api = EVFSAMAPI()
     server = ls.LitServer(api, accelerator="auto", max_batch_size=1)
-    server.run(port=8000)
+    server.run(port=8000, log_level="trace")

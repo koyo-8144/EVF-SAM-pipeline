@@ -11,9 +11,9 @@ REALSENSE = 0
 
 
 # Define the server URL
-url = "http://0.0.0.0:8000/predict"  # Note the '/predict' endpoint
-# url = "http://127.0.0.1:8000/predict"  # Note the '/predict' endpoint
-# url = "http://10.138.177.122:9000/predict"  # Note the '/predict' endpoint
+# url = "http://0.0.0.0:8000/predict"  # Note the '/predict' endpoint
+# url = "http://100.106.58.3:8000/predict"  # Note the '/predict' endpoint
+url = "http://10.138.177.122:9000/predict"  # Note the '/predict' endpoint
 
 prompt = "detect a person"
 
@@ -32,7 +32,8 @@ else:
         exit()
 
 try:
-    # pipeline.start(config)
+    if REALSENSE:
+        pipeline.start(config)
     print("Streaming started. Press 'q' to quit.")
     save_dir = "image_files"
     os.makedirs(save_dir, exist_ok=True)
@@ -92,31 +93,37 @@ try:
             print(f"Processed output received for frame {count}")
 
             # Decode the base64-encoded image
-            img_data = base64.b64decode(response_json["segmentation_image"])
-            img_array = np.frombuffer(img_data, dtype=np.uint8)
-            segmentation_image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            seg_img_data = base64.b64decode(response_json["segmentation_image"])
+            seg_img_array = np.frombuffer(seg_img_data, dtype=np.uint8)
+            segmentation_image = cv2.imdecode(seg_img_array, cv2.IMREAD_COLOR)
             # Display the processed output image
             cv2.imshow("Segmentation Image", segmentation_image)
 
             # Decode the base64-encoded image
-            img_data = base64.b64decode(response_json["bounding_box_image"])
-            img_array = np.frombuffer(img_data, dtype=np.uint8)
-            bounding_box_image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            bb_img_data = base64.b64decode(response_json["bounding_box_image"])
+            bb_img_array = np.frombuffer(bb_img_data, dtype=np.uint8)
+            bounding_box_image = cv2.imdecode(bb_img_array, cv2.IMREAD_COLOR)
             # Display the processed output image
             cv2.imshow("Bounding Box Image", bounding_box_image)
 
             # Decode the base64-encoded image
-            img_data = base64.b64decode(response_json["mask_image"])
-            img_array = np.frombuffer(img_data, dtype=np.uint8)
+            mask_img_data = base64.b64decode(response_json["mask_image"])
+            mask_img_array = np.frombuffer(mask_img_data, dtype=np.uint8)
             # img_array = (img_array * 255).astype(np.uint8)
-            mask_image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            mask_image = cv2.imdecode(mask_img_array, cv2.IMREAD_COLOR)
             # mask_image = cv2.imdecode(img_array, cv2.IMREAD_UNCHANGED)
             # print("mask_image: ", mask_image)
             # Display the processed output image
             cv2.imshow("Mask Image", mask_image)
 
-
-
+            xmin = response_json["xmin"]
+            ymin = response_json["ymin"]
+            xmax = response_json["xmax"]
+            ymax = response_json["ymax"]
+            print("xmin: ", xmin)
+            print("ymin: ", ymin)
+            print("xmax: ", xmax)
+            print("ymax: ", ymax)
 
         else:
             print(f"Error: {response.status_code}")
