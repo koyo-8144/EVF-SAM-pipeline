@@ -12,8 +12,8 @@ REALSENSE = 0
 
 # Define the server URL
 # url = "http://0.0.0.0:8000/predict"  # Note the '/predict' endpoint
-# url = "http://100.106.58.3:8000/predict"  # Note the '/predict' endpoint
-url = "http://10.138.177.122:9000/predict"  # Note the '/predict' endpoint
+url = "http://100.106.58.3:8000/predict"  # Note the '/predict' endpoint
+# url = "http://10.138.179.62:8000/predict"  # Note the '/predict' endpoint
 
 prompt = "detect a person"
 
@@ -87,7 +87,7 @@ try:
         # print("Send the POST request")
         # Send the POST request
         response = requests.post(url, files=files)
-
+        print("response: ", response)
         if response.status_code == 200:
             response_json = response.json()
             print(f"Processed output received for frame {count}")
